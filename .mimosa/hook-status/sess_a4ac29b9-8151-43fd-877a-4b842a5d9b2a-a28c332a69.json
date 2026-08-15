@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "mimosa-hook-status/v1",
+  "recordedAt": "2026-08-15T19:26:49.931Z",
+  "sessionId": "sess_a4ac29b9-8151-43fd-877a-4b842a5d9b2a",
+  "event": "PostToolUse",
+  "toolName": "Edit",
+  "file": "src/test/java/io/buildlens/cli/IngestFlowTest.java",
+  "outcome": "clear",
+  "coverage": "complete",
+  "findingCount": 0,
+  "durationMs": 7,
+  "hostState": "hook_complete",
+  "reportHint": ".mimosa/reports/"
+}

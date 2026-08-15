@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+#
+# BuildLens launcher.
+#
+# Runs the user's build command unchanged and streams its output through
+# BuildLens, which echoes it, analyzes it and stores a report.
+#
+#   buildlens mvn clean package
+#
+# Exit status: always the wrapped build's own exit status. BuildLens analysis
+# problems never change it.
+
+set -u
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+JAR="${BUILDLENS_JAR:-$SCRIPT_DIR/../target/buildlens.jar}"
+
+if [ ! -f "$JAR" ]; then
+  echo "BuildLens: jar not found at $JAR" >&2
+  echo "Build it first:  mvn -DskipTests package" >&2
+  exit 2
+fi
+
+# Resolve a JVM: JAVA_HOME first, then PATH.
+JAVA_BIN=""
+if [ -n "${JAVA_HOME:-}" ] && [ -x "${JAVA_HOME}/bin/java" ]; then
+  JAVA_BIN="${JAVA_HOME}/bin/java"
+elif command -v java >/dev/null 2>&1; then
+  JAVA_BIN="$(command -v java)"
+else
+  echo "BuildLens: no java executable found (set JAVA_HOME)" >&2
+  exit 2
+fi
+
+# Storage root (overridable for tests).
+BUILDS_HOME="${BUILDLENS_HOME:-$HOME/.buildlens}"
+
+MVN_BIN="${BUILDLENS_MVN:-mvn}"
+
+subcommand="${1:-help}"
+
+case "$subcommand" in
+  mvn|maven)
+    shift
+
+    if ! command -v "$MVN_BIN" >/dev/null 2>&1; then
+      echo "BuildLens: '$MVN_BIN' not found on PATH" >&2
+      exit 2
+    fi
+
+    # Probe tool metadata concurrently with the build (zero wall-clock cost).
+    VERSION_FILE="$(mktemp "${TMPDIR:-/tmp}/buildlens-version.XXXXXX")"
+    ( "$MVN_BIN" -version >"$VERSION_FILE" 2>&1 ) &
+    probe_pid=$!
+
+    # Run the build; merge stderr into the analyzed stream. Both pipeline
+    # stages start together; BuildLens echoes every line as it arrives.
+    "$MVN_BIN" "$@" 2>&1 | "$JAVA_BIN" -Dfile.encoding=UTF-8 -jar "$JAR" ingest \
+        --command "mvn $*" \
+        --version-file "$VERSION_FILE" \
+        --home "$BUILDS_HOME"
+    build_status=${PIPESTATUS[0]}
+
+    # Do not let a lingering probe delay the prompt.
+    kill "$probe_pid" >/dev/null 2>&1
+    wait "$probe_pid" >/dev/null 2>&1
+    rm -f "$VERSION_FILE"
+
+    exit "$build_status"
+    ;;
+
+  *)
+    # report / compare / list / help / version pass straight through.
+    exec "$JAVA_BIN" -Dfile.encoding=UTF-8 -jar "$JAR" "$@"
+    ;;
+esac

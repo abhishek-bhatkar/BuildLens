@@ -1,0 +1,72 @@
+{
+  "schemaVersion": "mimosa-finding-ledger-batch/v1",
+  "batchId": "pretooluse-00600cc9fc49773a2a4a3de298b55cd5",
+  "runId": null,
+  "runStatus": "completed",
+  "coverage": {
+    "status": "complete",
+    "reasons": []
+  },
+  "source": {
+    "component": "zcode-hook",
+    "operationId": "PreToolUse"
+  },
+  "revision": null,
+  "diffHash": null,
+  "rulesVersion": null,
+  "sessionHash": "a28c332a69d977d93794b044b02b1aa5759b7df0fa98de2ce97bfc8894002ceb",
+  "reportRef": null,
+  "events": [
+    {
+      "eventId": "hook-295abcee284892e9898b4f913c2e50d7",
+      "findingId": "mimosa-range-4f87e397aa149e496013cd6e",
+      "type": "finding_blocked",
+      "at": "2026-08-15T18:39:42.239Z",
+      "identity": {
+        "projectRelativeFile": "src/main/java/io/buildlens/providers/maven/MavenBuildProvider.java",
+        "ruleId": "security",
+        "codeEvidenceHash": null,
+        "confidence": "range_only"
+      },
+      "scope": "direct",
+      "line": 88,
+      "endLine": 88,
+      "reasonCode": "deny",
+      "reportedToAgent": true,
+      "evidence": {
+        "kind": "source",
+        "boundary": "range_only",
+        "producer": "deterministic",
+        "evidenceHash": null
+      },
+      "sequence": 0
+    },
+    {
+      "eventId": "hook-414f9030aabe7b726f38dd75da1b81e2",
+      "findingId": "mimosa-da8c60ef8d68927de1ffba54",
+      "type": "finding_blocked",
+      "at": "2026-08-15T18:39:42.239Z",
+      "identity": {
+        "projectRelativeFile": "src/main/java/io/buildlens/providers/maven/MavenBuildProvider.java",
+        "ruleId": "security",
+        "codeEvidenceHash": "7063eb2d435e97d91e3d725e7394d38bf3d933d24f2771f358f221ff0826d3ee",
+        "confidence": "stable"
+      },
+      "scope": "direct",
+      "line": 210,
+      "endLine": 210,
+      "reasonCode": "deny",
+      "reportedToAgent": true,
+      "evidence": {
+        "kind": "source",
+        "boundary": "candidate",
+        "producer": "deterministic",
+        "evidenceHash": "7063eb2d435e97d91e3d725e7394d38bf3d933d24f2771f358f221ff0826d3ee"
+      },
+      "sequence": 1
+    }
+  ],
+  "observedFindingIds": [],
+  "verifiedFiles": [],
+  "recordedAt": "2026-08-15T18:39:42.514Z"
+}

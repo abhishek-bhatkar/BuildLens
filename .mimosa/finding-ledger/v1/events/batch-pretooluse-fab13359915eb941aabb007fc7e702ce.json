@@ -1,0 +1,72 @@
+{
+  "schemaVersion": "mimosa-finding-ledger-batch/v1",
+  "batchId": "pretooluse-fab13359915eb941aabb007fc7e702ce",
+  "runId": null,
+  "runStatus": "completed",
+  "coverage": {
+    "status": "complete",
+    "reasons": []
+  },
+  "source": {
+    "component": "zcode-hook",
+    "operationId": "PreToolUse"
+  },
+  "revision": null,
+  "diffHash": null,
+  "rulesVersion": null,
+  "sessionHash": "a28c332a69d977d93794b044b02b1aa5759b7df0fa98de2ce97bfc8894002ceb",
+  "reportRef": null,
+  "events": [
+    {
+      "eventId": "hook-bbf59fa823e7029136af5d5cea19e339",
+      "findingId": "mimosa-43c5fe6e88a56cd68d66eca6",
+      "type": "finding_blocked",
+      "at": "2026-08-15T18:41:43.469Z",
+      "identity": {
+        "projectRelativeFile": "src/main/java/io/buildlens/core/process/ProcessLauncher.java",
+        "ruleId": "security",
+        "codeEvidenceHash": "3b3ffba0bf5bd26b2ebbc8323b246a33387bfebfd846b35577c85e990877c95f",
+        "confidence": "stable"
+      },
+      "scope": "direct",
+      "line": 43,
+      "endLine": 43,
+      "reasonCode": "deny",
+      "reportedToAgent": true,
+      "evidence": {
+        "kind": "source",
+        "boundary": "candidate",
+        "producer": "deterministic",
+        "evidenceHash": "3b3ffba0bf5bd26b2ebbc8323b246a33387bfebfd846b35577c85e990877c95f"
+      },
+      "sequence": 0
+    },
+    {
+      "eventId": "hook-12f67d4e86c04b099d6f4c033d2a4402",
+      "findingId": "mimosa-b566e47eeb45fd1c83391ded",
+      "type": "finding_blocked",
+      "at": "2026-08-15T18:41:43.469Z",
+      "identity": {
+        "projectRelativeFile": "src/main/java/io/buildlens/core/process/ProcessLauncher.java",
+        "ruleId": "security",
+        "codeEvidenceHash": "d325bc8e998c2520fe556c11c022df78caec6b918f61184a7f88fd04382699e5",
+        "confidence": "stable"
+      },
+      "scope": "direct",
+      "line": 56,
+      "endLine": 56,
+      "reasonCode": "deny",
+      "reportedToAgent": true,
+      "evidence": {
+        "kind": "source",
+        "boundary": "candidate",
+        "producer": "deterministic",
+        "evidenceHash": "d325bc8e998c2520fe556c11c022df78caec6b918f61184a7f88fd04382699e5"
+      },
+      "sequence": 1
+    }
+  ],
+  "observedFindingIds": [],
+  "verifiedFiles": [],
+  "recordedAt": "2026-08-15T18:41:43.749Z"
+}
