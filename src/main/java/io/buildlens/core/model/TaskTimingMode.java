@@ -7,9 +7,19 @@ package io.buildlens.core.model;
  */
 public enum TaskTimingMode {
     /** Sequential build; wall-clock arrival deltas attribute time reliably. */
-    SEQUENTIAL_ARRIVAL,
+    SEQUENTIAL_ARRIVAL(TaskTimingConfidence.HIGH),
     /** Parallel/multi-threaded build; per-task times are approximate. */
-    APPROXIMATE_PARALLEL,
+    APPROXIMATE_PARALLEL(TaskTimingConfidence.LOW),
     /** No usable task timing was captured for this build. */
-    NONE
+    NONE(TaskTimingConfidence.UNAVAILABLE);
+
+    private final TaskTimingConfidence confidence;
+
+    TaskTimingMode(TaskTimingConfidence confidence) {
+        this.confidence = confidence;
+    }
+
+    public TaskTimingConfidence confidence() {
+        return confidence;
+    }
 }
