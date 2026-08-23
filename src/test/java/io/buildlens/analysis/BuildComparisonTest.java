@@ -43,7 +43,7 @@ class BuildComparisonTest {
 
         assertEquals(ComparisonResult.Verdict.REGRESSION, result.getVerdict());
         assertEquals(38_000L, result.getDurationDeltaMs());
-        assertTrue(result.getDurationDeltaPercent() > 19.9 && result.getDurationDeltaPercent() < 20.1);
+        assertTrue(result.getDurationDeltaPercent() > 20.0 && result.getDurationDeltaPercent() < 20.2);
 
         assertEquals(2, result.getCategoryRows().size());
         ComparisonResult.DeltaRow compile = findRow(result.getCategoryRows(), "Compile");

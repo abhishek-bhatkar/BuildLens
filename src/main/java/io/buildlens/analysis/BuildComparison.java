@@ -51,6 +51,13 @@ public final class BuildComparison {
                 improvements.add(taskDelta);
             }
         }
+        // Regressions: biggest increase first; improvements: biggest saving first.
+        improvements.sort(new Comparator<ComparisonResult.TaskDelta>() {
+            @Override
+            public int compare(ComparisonResult.TaskDelta a, ComparisonResult.TaskDelta b) {
+                return Long.compare(a.deltaMs, b.deltaMs);
+            }
+        });
 
         return new ComparisonResult(
                 previous.getBuildId(), current.getBuildId(),

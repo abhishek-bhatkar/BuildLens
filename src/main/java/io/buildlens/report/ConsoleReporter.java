@@ -215,33 +215,37 @@ public final class ConsoleReporter {
             sb.append('\n');
         }
 
-        if (!result.getTaskRegressions().isEmpty()) {
-            sb.append(section("Likely regression"));
-            int shown = 0;
-            for (ComparisonResult.TaskDelta delta : result.getTaskRegressions()) {
-                if (delta.deltaMs < 500 || shown >= 5) {
-                    break;
-                }
-                sb.append("  ").append(pad(delta.current.label(), 36))
-                        .append(padLeft(signedDuration(delta.deltaMs), 9))
-                        .append('\n');
-                shown++;
+        int shown = 0;
+        for (ComparisonResult.TaskDelta delta : result.getTaskRegressions()) {
+            if (delta.deltaMs < 500 || shown >= 5) {
+                break;
             }
+            if (shown == 0) {
+                sb.append(section("Likely regression"));
+            }
+            sb.append("  ").append(pad(delta.current.label(), 36))
+                    .append(padLeft(signedDuration(delta.deltaMs), 9))
+                    .append('\n');
+            shown++;
+        }
+        if (shown > 0) {
             sb.append('\n');
         }
 
-        if (!result.getTaskImprovements().isEmpty()) {
-            sb.append(section("Improved"));
-            int shown = 0;
-            for (ComparisonResult.TaskDelta delta : result.getTaskImprovements()) {
-                if (delta.deltaMs > -500 || shown >= 5) {
-                    break;
-                }
-                sb.append("  ").append(pad(delta.current.label(), 36))
-                        .append(padLeft(signedDuration(delta.deltaMs), 9))
-                        .append('\n');
-                shown++;
+        shown = 0;
+        for (ComparisonResult.TaskDelta delta : result.getTaskImprovements()) {
+            if (delta.deltaMs > -500 || shown >= 5) {
+                break;
             }
+            if (shown == 0) {
+                sb.append(section("Improved"));
+            }
+            sb.append("  ").append(pad(delta.current.label(), 36))
+                    .append(padLeft(signedDuration(delta.deltaMs), 9))
+                    .append('\n');
+            shown++;
+        }
+        if (shown > 0) {
             sb.append('\n');
         }
         return sb.toString();

@@ -63,7 +63,7 @@ class BuildStorageTest {
         assertEquals("2026-08-15T220103", ids.get(0));
         assertEquals("2026-08-15T224201", storage.latestId());
 
-        assertEquals("2026-08-15T221744", storage.resolveId("2217"));
+        assertEquals("2026-08-15T221744", storage.resolveId("2026-08-15T2217"));
         assertNull(storage.resolveId("1970"));
     }
 

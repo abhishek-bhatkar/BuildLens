@@ -30,9 +30,12 @@ public final class TextFormat {
         return String.format("%dm %02ds", minutes, seconds);
     }
 
-    /** Signed duration: +38s, -1.2s. */
+    /** Signed duration: +38s, -1.2s; sub-100ms noise renders as 0.0s. */
     public static String signedDuration(long ms) {
-        String sign = ms > 0 ? "+" : "";
+        if (Math.abs(ms) < 100) {
+            return duration(0);
+        }
+        String sign = ms < 0 ? "-" : "+";
         return sign + duration(Math.abs(ms));
     }
 
