@@ -113,7 +113,13 @@ public final class BuildStorage {
         return ids.isEmpty() ? null : ids.get(ids.size() - 1);
     }
 
-    /** Loads a build by exact id or unambiguous prefix. */
+    /**
+     * Loads a build by exact id or unambiguous prefix.
+     *
+     * @throws StorageException when the report is corrupt or unreadable, so a
+     *         single damaged file surfaces as a controlled error instead of
+     *         an unchecked parse failure
+     */
     public Build load(String idOrPrefix) throws StorageException {
         String id = resolveId(idOrPrefix);
         if (id == null) {
@@ -124,6 +130,22 @@ public final class BuildStorage {
             return GSON.fromJson(Files.newBufferedReader(file, StandardCharsets.UTF_8), Build.class);
         } catch (IOException e) {
             throw new StorageException("Could not read " + file, e);
+        } catch (RuntimeException e) {
+            throw new StorageException("Report " + id + " is corrupt or not a valid "
+                    + "BuildLens report (" + file.getFileName() + ")", e);
+        }
+    }
+
+    /**
+     * Lenient variant for history operations: returns null when the report is
+     * corrupt or unreadable so listing and comparison can skip it instead of
+     * aborting.
+     */
+    public Build loadOrNull(String id) {
+        try {
+            return load(id);
+        } catch (StorageException e) {
+            return null;
         }
     }
 

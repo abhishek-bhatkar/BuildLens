@@ -165,8 +165,35 @@ public final class Main {
     private int report(List<String> ids, Path home, PrintStream out, PrintStream err)
             throws BuildStorage.StorageException {
         BuildStorage storage = new BuildStorage(home);
-        String id = ids.isEmpty() ? storage.latestId() : storage.resolveId(ids.get(0));
-        if (id == null) {
+        String id = null;
+        Build build = null;
+        if (ids.isEmpty()) {
+            // Default: latest readable report — corrupt files are skipped.
+            List<String> all = storage.listIds();
+            for (int i = all.size() - 1; i >= 0 && build == null; i--) {
+                build = storage.loadOrNull(all.get(i));
+                if (build == null) {
+                    warnSkipped(err, all.get(i));
+                }
+            }
+            if (build != null) {
+                id = build.getBuildId();
+            }
+        } else {
+            id = storage.resolveId(ids.get(0));
+            if (id != null) {
+                try {
+                    build = storage.load(id); // explicit request: strict
+                } catch (BuildStorage.StorageException e) {
+                    err.print("Could not show report ");
+                    err.print(id);
+                    err.print(": ");
+                    err.println(e.getMessage());
+                    return EXIT_NOT_FOUND;
+                }
+            }
+        }
+        if (id == null || build == null) {
             if (ids.isEmpty()) {
                 err.println("No captured builds yet. Run: buildlens mvn clean package");
             } else {
@@ -176,14 +203,13 @@ public final class Main {
             }
             return EXIT_NOT_FOUND;
         }
-        Build build = storage.load(id);
-        if (build == null) {
-            err.print("Could not read build ");
-            err.println(id);
-            return EXIT_NOT_FOUND;
-        }
         out.print(reporter.fullReport(build));
         return 0;
+    }
+
+    private static void warnSkipped(PrintStream err, String id) {
+        err.print("Warning: skipping corrupt report ");
+        err.println(id);
     }
 
     // ------------------------------------------------------------------ compare
@@ -191,7 +217,6 @@ public final class Main {
     private int compare(List<String> ids, Path home, PrintStream out, PrintStream err)
             throws BuildStorage.StorageException {
         BuildStorage storage = new BuildStorage(home);
-        List<String> all = storage.listIds();
 
         String currentId;
         String previousId;
@@ -200,10 +225,11 @@ public final class Main {
             currentId = storage.resolveId(ids.get(1));
         } else if (ids.size() == 1) {
             currentId = storage.resolveId(ids.get(0));
-            previousId = latestBefore(all, currentId);
+            previousId = latestBefore(storage.listIds(), currentId);
         } else {
-            currentId = all.isEmpty() ? null : all.get(all.size() - 1);
-            previousId = all.size() < 2 ? null : all.get(all.size() - 2);
+            String[] pair = selectDefaultPair(storage, err);
+            previousId = pair[0];
+            currentId = pair[1];
         }
         if (currentId == null) {
             err.println("No captured builds yet. Run: buildlens mvn clean package");
@@ -219,6 +245,37 @@ public final class Main {
         out.print(reporter.compare(new io.buildlens.analysis.BuildComparison()
                 .compare(previous, current)));
         return 0;
+    }
+
+    /**
+     * Default pairing for {@code buildlens compare}: the two most recent
+     * readable reports, walking backwards past corrupt files so one damaged
+     * report cannot block history operations. Returns {previousId, currentId};
+     * either may be null when not enough readable builds exist.
+     */
+    static String[] selectDefaultPair(BuildStorage storage, PrintStream err)
+            throws BuildStorage.StorageException {
+        List<String> all = storage.listIds();
+        String currentId = null;
+        String previousId = null;
+        int cursor = all.size() - 1;
+        while (cursor >= 0 && currentId == null) {
+            String candidate = all.get(cursor--);
+            if (storage.loadOrNull(candidate) == null) {
+                warnSkipped(err, candidate);
+            } else {
+                currentId = candidate;
+            }
+        }
+        while (cursor >= 0 && previousId == null) {
+            String candidate = all.get(cursor--);
+            if (storage.loadOrNull(candidate) == null) {
+                warnSkipped(err, candidate);
+            } else {
+                previousId = candidate;
+            }
+        }
+        return new String[]{previousId, currentId};
     }
 
     private static String latestBefore(List<String> ids, String currentId) {
@@ -242,9 +299,11 @@ public final class Main {
         BuildStorage storage = new BuildStorage(home);
         List<Build> builds = new ArrayList<Build>();
         for (String id : storage.listIds()) {
-            Build build = storage.load(id);
+            Build build = storage.loadOrNull(id);
             if (build != null) {
                 builds.add(build);
+            } else {
+                warnSkipped(err, id);
             }
         }
         out.print(reporter.list(builds));

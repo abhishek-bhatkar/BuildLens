@@ -93,6 +93,30 @@ class BuildStorageTest {
     }
 
     @Test
+    void corruptReportsAreIsolatedNotFatal() throws Exception {
+        BuildStorage storage = new BuildStorage(tempDir);
+        storage.save(result("2026-08-15T220103", "mvn clean package", 1000));
+        storage.save(result("2026-08-15T221744", "mvn clean package", 2000));
+        // damage the newest report the way a truncated write would
+        java.nio.file.Files.write(
+                tempDir.resolve("builds/2026-08-15T221744.json"),
+                "{ not valid json".getBytes("UTF-8"));
+
+        try {
+            storage.load("2026-08-15T221744");
+            throw new AssertionError("expected corrupt-report failure");
+        } catch (BuildStorage.StorageException e) {
+            assertTrue(e.getMessage().contains("corrupt"));
+        }
+
+        // lenient reads let history operations skip the damaged file
+        assertNull(storage.loadOrNull("2026-08-15T221744"));
+        assertEquals("mvn clean package", storage.loadOrNull("2026-08-15T220103").getCommand());
+        // id listing is filename-based and unaffected
+        assertEquals(2, storage.listIds().size());
+    }
+
+    @Test
     void jsonShapeMatchesDocumentedSchema() throws Exception {
         BuildStorage storage = new BuildStorage(tempDir);
         Path saved = storage.save(result("2026-08-15T220103", "mvn clean package", 227_000));
