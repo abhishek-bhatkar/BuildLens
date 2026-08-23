@@ -108,6 +108,9 @@ buildlens mvn clean package
 ```
 
 Filenames sort chronologically; that ordering defines "previous build".
+`projectDir` (the build's working directory) pairs reports from the same
+project: the default `buildlens compare` only matches builds of one project,
+and explicitly crossing projects or commands produces a visible warning.
 `BUILDLENS_HOME` overrides the root (also `--home <dir>` on every command).
 
 Schema v1 (fields with no data are omitted):
@@ -118,6 +121,7 @@ Schema v1 (fields with no data are omitted):
   "buildId": "2026-08-15T220103",
   "timestamp": "2026-08-15T22:01:03.412+05:30",
   "command": "mvn clean package",
+  "projectDir": "/repo/billing",
   "tool": "maven",
   "toolVersion": "3.9.10",
   "environment": { "javaVersion": "1.8.0_322", "os": "mac os x", "...": "..." },

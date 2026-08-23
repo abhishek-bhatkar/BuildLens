@@ -150,6 +150,17 @@ class IngestFlowTest {
     }
 
     @Test
+    void projectDirFromContextIsCaptured() throws Exception {
+        Console console = new Console();
+        MavenStreamProvider provider = new MavenStreamProvider();
+        CaptureContext context = new CaptureContext("mvn clean package", null, null,
+                System.nanoTime(), "/repo/simple-project");
+        BuildResult result = provider.capture(GoldenLogs.stream("golden-simple-project.log"),
+                context, console.stream);
+        assertEquals("/repo/simple-project", result.getBuild().getProjectDir());
+    }
+
+    @Test
     void persistenceRoundTripThenSummaryAndReport() throws Exception {
         Console console = new Console();
         BuildResult result = capturePaced("golden-simple-project.log", console);

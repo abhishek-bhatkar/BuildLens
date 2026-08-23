@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BuildComparisonTest {
@@ -74,6 +75,41 @@ class BuildComparisonTest {
         assertEquals(ComparisonResult.Verdict.IMPROVEMENT, result.getVerdict());
         assertEquals(2, result.getTaskImprovements().size());
         assertEquals(-20_000L, result.getTaskImprovements().get(0).deltaMs);
+    }
+
+    @Test
+    void differentProjectsProduceAContextWarning() {
+        Build previous = build("prev", 100_000, 50_000, 40_000, 60_000, 30_000);
+        previous.setProjectDir("/repo/alpha");
+        Build current = build("cur", 110_000, 55_000, 40_000, 65_000, 30_000);
+        current.setProjectDir("/repo/beta");
+
+        String warning = new BuildComparison().compare(previous, current).getContextWarning();
+        assertTrue(warning != null && warning.contains("different projects"));
+        assertTrue(warning.contains("/repo/alpha"));
+        assertTrue(warning.contains("/repo/beta"));
+    }
+
+    @Test
+    void differentCommandsProduceAContextWarning() {
+        Build previous = build("prev", 100_000, 50_000, 40_000, 60_000, 30_000);
+        previous.setCommand("mvn clean package");
+        previous.setProjectDir("/repo/alpha");
+        Build current = build("cur", 70_000, 50_000, 10_000, 60_000, 30_000);
+        current.setCommand("mvn clean package -DskipTests");
+        current.setProjectDir("/repo/alpha");
+
+        String warning = new BuildComparison().compare(previous, current).getContextWarning();
+        assertTrue(warning != null && warning.contains("Commands differ"));
+    }
+
+    @Test
+    void sameContextHasNoWarning() {
+        Build previous = build("prev", 100_000, 50_000, 40_000, 60_000, 30_000);
+        previous.setProjectDir("/repo/alpha");
+        Build current = build("cur", 110_000, 55_000, 40_000, 65_000, 30_000);
+        current.setProjectDir("/repo/alpha");
+        assertNull(new BuildComparison().compare(previous, current).getContextWarning());
     }
 
     private static ComparisonResult.DeltaRow findRow(List<ComparisonResult.DeltaRow> rows,

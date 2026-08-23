@@ -107,6 +107,7 @@ public final class Main {
         Integer exitCode = null;
         Path versionFile = null;
         Path home = StorageLocations.defaultRoot();
+        String projectDir = null;
 
         for (int i = 0; i < args.length; i++) {
             String arg = args[i];
@@ -124,6 +125,8 @@ public final class Main {
                 versionFile = Paths.get(args[++i]);
             } else if ("--home".equals(arg) && i + 1 < args.length) {
                 home = Paths.get(args[++i]);
+            } else if ("--project-dir".equals(arg) && i + 1 < args.length) {
+                projectDir = args[++i];
             }
         }
         if (command == null) {
@@ -141,7 +144,7 @@ public final class Main {
 
         long captureStart = System.nanoTime();
         CaptureContext context = new CaptureContext(command, exitCode, versionFile,
-                System.nanoTime());
+                System.nanoTime(), projectDir);
         BuildResult result;
         try {
             result = provider.capture(in, context, out);
@@ -236,7 +239,9 @@ public final class Main {
             return EXIT_NOT_FOUND;
         }
         if (previousId == null) {
-            err.println("Only one captured build exists; need at least two to compare.");
+            err.println("No previous build of this project to compare against. "
+                    + "Capture at least two builds of the same project, or pass "
+                    + "two ids explicitly (buildlens compare <a> <b>).");
             return EXIT_NOT_FOUND;
         }
 
@@ -248,34 +253,51 @@ public final class Main {
     }
 
     /**
-     * Default pairing for {@code buildlens compare}: the two most recent
-     * readable reports, walking backwards past corrupt files so one damaged
-     * report cannot block history operations. Returns {previousId, currentId};
-     * either may be null when not enough readable builds exist.
+     * Default pairing for {@code buildlens compare}: the current build is the
+     * most recent readable report; the previous is the most recent readable
+     * report from the <b>same project</b> (matching project directory), so
+     * histories of different projects are never mixed into one delta.
+     * Corrupt files are walked past with a warning. Returns
+     * {previousId, currentId}; either may be null when no match exists.
      */
     static String[] selectDefaultPair(BuildStorage storage, PrintStream err)
             throws BuildStorage.StorageException {
         List<String> all = storage.listIds();
+        Build current = null;
         String currentId = null;
-        String previousId = null;
         int cursor = all.size() - 1;
-        while (cursor >= 0 && currentId == null) {
+        while (cursor >= 0 && current == null) {
             String candidate = all.get(cursor--);
-            if (storage.loadOrNull(candidate) == null) {
+            Build build = storage.loadOrNull(candidate);
+            if (build == null) {
                 warnSkipped(err, candidate);
             } else {
+                current = build;
                 currentId = candidate;
             }
         }
+        String previousId = null;
         while (cursor >= 0 && previousId == null) {
             String candidate = all.get(cursor--);
-            if (storage.loadOrNull(candidate) == null) {
+            Build build = storage.loadOrNull(candidate);
+            if (build == null) {
                 warnSkipped(err, candidate);
-            } else {
+            } else if (sameProject(current, build)) {
                 previousId = candidate;
             }
         }
         return new String[]{previousId, currentId};
+    }
+
+    /** Null-safe project identity: builds without a recorded project
+     *  directory (legacy reports) match anything. */
+    private static boolean sameProject(Build a, Build b) {
+        if (a == null || b == null) {
+            return false;
+        }
+        String dirA = a.getProjectDir();
+        String dirB = b.getProjectDir();
+        return dirA == null || dirB == null || dirA.equals(dirB);
     }
 
     private static String latestBefore(List<String> ids, String currentId) {

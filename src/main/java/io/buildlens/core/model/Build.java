@@ -22,6 +22,12 @@ public class Build {
     @SerializedName("command")
     private String command;
 
+    /** Working directory of the captured build; pairs reports from the same
+     *  project for comparison. Null in reports captured before this field
+     *  existed. */
+    @SerializedName("projectDir")
+    private String projectDir;
+
     @SerializedName("tool")
     private String tool;
 
@@ -96,6 +102,14 @@ public class Build {
 
     public void setCommand(String command) {
         this.command = command;
+    }
+
+    public String getProjectDir() {
+        return projectDir;
+    }
+
+    public void setProjectDir(String projectDir) {
+        this.projectDir = projectDir;
     }
 
     public String getTool() {

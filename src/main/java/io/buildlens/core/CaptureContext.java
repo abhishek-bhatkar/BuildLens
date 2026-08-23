@@ -9,6 +9,7 @@ public final class CaptureContext {
     private final Integer exitCode;
     private final Path versionFile;
     private final long startNanos;
+    private final String projectDir;
 
     /**
      * @param command     the full command line the user asked to run
@@ -18,10 +19,20 @@ public final class CaptureContext {
      * @param startNanos  {@link System#nanoTime()} taken at build start
      */
     public CaptureContext(String command, Integer exitCode, Path versionFile, long startNanos) {
+        this(command, exitCode, versionFile, startNanos, null);
+    }
+
+    /**
+     * @param projectDir  working directory of the build, used to pair reports
+     *                    from the same project during comparison
+     */
+    public CaptureContext(String command, Integer exitCode, Path versionFile, long startNanos,
+                          String projectDir) {
         this.command = command;
         this.exitCode = exitCode;
         this.versionFile = versionFile;
         this.startNanos = startNanos;
+        this.projectDir = projectDir;
     }
 
     public String getCommand() {
@@ -38,5 +49,9 @@ public final class CaptureContext {
 
     public long getStartNanos() {
         return startNanos;
+    }
+
+    public String getProjectDir() {
+        return projectDir;
     }
 }

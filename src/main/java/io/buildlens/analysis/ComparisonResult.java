@@ -40,6 +40,7 @@ public final class ComparisonResult {
     private final List<DeltaRow> moduleDeltas;
     private final List<TaskDelta> taskRegressions;
     private final List<TaskDelta> taskImprovements;
+    private final String contextWarning;
 
     public ComparisonResult(String previousId, String currentId,
                             long previousDurationMs, long currentDurationMs,
@@ -47,6 +48,18 @@ public final class ComparisonResult {
                             Verdict verdict,
                             List<DeltaRow> categoryRows, List<DeltaRow> moduleDeltas,
                             List<TaskDelta> taskRegressions, List<TaskDelta> taskImprovements) {
+        this(previousId, currentId, previousDurationMs, currentDurationMs, durationDeltaMs,
+                durationDeltaPercent, verdict, categoryRows, moduleDeltas, taskRegressions,
+                taskImprovements, null);
+    }
+
+    public ComparisonResult(String previousId, String currentId,
+                            long previousDurationMs, long currentDurationMs,
+                            long durationDeltaMs, double durationDeltaPercent,
+                            Verdict verdict,
+                            List<DeltaRow> categoryRows, List<DeltaRow> moduleDeltas,
+                            List<TaskDelta> taskRegressions, List<TaskDelta> taskImprovements,
+                            String contextWarning) {
         this.previousId = previousId;
         this.currentId = currentId;
         this.previousDurationMs = previousDurationMs;
@@ -58,6 +71,7 @@ public final class ComparisonResult {
         this.moduleDeltas = moduleDeltas;
         this.taskRegressions = taskRegressions;
         this.taskImprovements = taskImprovements;
+        this.contextWarning = contextWarning;
     }
 
     /** A task present in both builds with its duration change. */
@@ -115,5 +129,14 @@ public final class ComparisonResult {
 
     public List<TaskDelta> getTaskImprovements() {
         return taskImprovements;
+    }
+
+    /**
+     * Non-null when the two builds may not be meaningfully comparable, e.g.
+     * different projects or different command lines. Always shown to the
+     * user instead of silently producing deltas.
+     */
+    public String getContextWarning() {
+        return contextWarning;
     }
 }

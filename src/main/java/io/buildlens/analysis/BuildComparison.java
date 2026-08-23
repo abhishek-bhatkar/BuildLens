@@ -62,7 +62,29 @@ public final class BuildComparison {
         return new ComparisonResult(
                 previous.getBuildId(), current.getBuildId(),
                 prevMs, curMs, delta, percent, verdict,
-                categoryRows, moduleDeltas, regressions, improvements);
+                categoryRows, moduleDeltas, regressions, improvements,
+                contextWarning(previous, current));
+    }
+
+    /**
+     * Cross-build context check: comparing different projects is usually a
+     * mistake, and differing command lines change what the delta means. Both
+     * are surfaced rather than silently mixed into one number.
+     */
+    private static String contextWarning(Build previous, Build current) {
+        String prevDir = previous.getProjectDir();
+        String curDir = current.getProjectDir();
+        if (prevDir != null && curDir != null && !prevDir.equals(curDir)) {
+            return "These builds are from different projects ("
+                    + prevDir + " vs " + curDir + "); deltas may be meaningless.";
+        }
+        String prevCommand = previous.getCommand();
+        String curCommand = current.getCommand();
+        if (prevCommand != null && curCommand != null && !prevCommand.equals(curCommand)) {
+            return "Commands differ between these builds ("
+                    + prevCommand + " vs " + curCommand + ").";
+        }
+        return null;
     }
 
     private static List<ComparisonResult.DeltaRow> categoryRows(Build previous, Build current) {

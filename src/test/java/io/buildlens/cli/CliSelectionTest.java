@@ -29,6 +29,23 @@ class CliSelectionTest {
         return build;
     }
 
+    private static Build build(String id, long durationMs, String projectDir) {
+        Build build = build(id, durationMs);
+        build.setProjectDir(projectDir);
+        return build;
+    }
+
+    private BuildStorage storageWithProjects(Object... idAndDir) throws Exception {
+        BuildStorage storage = new BuildStorage(tempDir);
+        for (int i = 0; i < idAndDir.length; i += 2) {
+            String dir = (String) idAndDir[i + 1];
+            Build b = dir == null ? build((String) idAndDir[i], 1000)
+                    : build((String) idAndDir[i], 1000, dir);
+            storage.save(new BuildResult(b, "raw\n"));
+        }
+        return storage;
+    }
+
     private BuildStorage storageWith(String... ids) throws Exception {
         BuildStorage storage = new BuildStorage(tempDir);
         for (String id : ids) {
@@ -91,5 +108,38 @@ class CliSelectionTest {
     private void damage(String id) throws Exception {
         java.nio.file.Files.write(tempDir.resolve("builds").resolve(id + ".json"),
                 "not json at all".getBytes(StandardCharsets.UTF_8));
+    }
+
+    @Test
+    void defaultPairRequiresSameProject() throws Exception {
+        // history in chronological order: alpha, beta (different project), alpha
+        BuildStorage storage = storageWithProjects(
+                "t1-alpha", "/repo/alpha",
+                "t2-beta", "/repo/beta",
+                "t3-alpha", "/repo/alpha");
+        String[] pair = select(storage);
+        assertEquals("t3-alpha", pair[1]);
+        assertEquals("t1-alpha", pair[0]); // t2-beta is skipped: different project
+    }
+
+    @Test
+    void noPreviousOfSameProjectYieldsNullPrevious() throws Exception {
+        // newest build is the only one of its project
+        BuildStorage storage = storageWithProjects(
+                "t1-alpha", "/repo/alpha",
+                "t2-beta", "/repo/beta");
+        String[] pair = select(storage);
+        assertEquals("t2-beta", pair[1]);
+        assertNull(pair[0]);
+    }
+
+    @Test
+    void legacyReportsWithoutProjectDirMatchAnything() throws Exception {
+        BuildStorage storage = storageWithProjects(
+                "t1-legacy", null,
+                "t2-alpha", "/repo/alpha");
+        String[] pair = select(storage);
+        assertEquals("t2-alpha", pair[1]);
+        assertEquals("t1-legacy", pair[0]);
     }
 }

@@ -99,6 +99,9 @@ public final class ConsoleReporter {
 
         sb.append(section("Overview"));
         sb.append(row("Command", build.getCommand() == null ? "n/a" : build.getCommand()));
+        if (build.getProjectDir() != null) {
+            sb.append(row("Project", build.getProjectDir()));
+        }
         sb.append(row("Tool", toolLine(build)));
         sb.append(row("Java", environmentValue(build, ENV_JAVA_VERSION)));
         sb.append(row("OS", environmentValue(build, ENV_OS)));
@@ -199,6 +202,10 @@ public final class ConsoleReporter {
             default:
                 sb.append(row("Delta", verdictLine)).append("  (within noise threshold)");
                 break;
+        }
+        if (result.getContextWarning() != null) {
+            sb.append('\n').append(Ansi.apply(Ansi.Style.YELLOW,
+                    "⚠ " + result.getContextWarning())).append('\n');
         }
         sb.append('\n');
 

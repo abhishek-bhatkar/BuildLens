@@ -123,6 +123,7 @@ public final class MavenStreamProvider implements BuildProvider {
         build.setBuildId(startedAt.format(ID_FORMAT));
         build.setTimestamp(startedAt.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
         build.setCommand(context.getCommand());
+        build.setProjectDir(context.getProjectDir());
         build.setTool("maven");
         build.setDurationMs(durationMs);
         build.setReportedDurationMs(parsed.getTotalMs());

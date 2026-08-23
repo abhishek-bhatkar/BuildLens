@@ -55,9 +55,12 @@ case "$subcommand" in
 
     # Run the build; merge stderr into the analyzed stream. Both pipeline
     # stages start together; BuildLens echoes every line as it arrives.
+    # --project-dir records which project the build belongs to so history
+    # comparison never mixes different projects into one delta.
     "$MVN_BIN" "$@" 2>&1 | "$JAVA_BIN" -Dfile.encoding=UTF-8 -jar "$JAR" ingest \
         --command "mvn $*" \
         --version-file "$VERSION_FILE" \
+        --project-dir "$PWD" \
         --home "$BUILDS_HOME"
     build_status=${PIPESTATUS[0]}
 
