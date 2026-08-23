@@ -19,6 +19,12 @@ class TextFormatTest {
     }
 
     @Test
+    void handlesNullDurationsAsUnavailable() {
+        assertEquals("n/a", TextFormat.duration((Long) null));
+        assertEquals("1.5s", TextFormat.duration(Long.valueOf(1500)));
+    }
+
+    @Test
     void formatsSignedValues() {
         assertEquals("+38s", TextFormat.signedDuration(38_000));
         assertEquals("-1.2s", TextFormat.signedDuration(-1200));

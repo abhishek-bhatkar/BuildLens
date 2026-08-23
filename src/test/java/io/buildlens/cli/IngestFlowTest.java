@@ -4,6 +4,9 @@ import io.buildlens.core.BuildResult;
 import io.buildlens.core.CaptureContext;
 import io.buildlens.core.model.Build;
 import io.buildlens.core.model.BuildStatus;
+import io.buildlens.core.model.TaskTimingConfidence;
+import io.buildlens.core.model.TaskTimingMode;
+import io.buildlens.core.model.TaskTimingSource;
 import io.buildlens.providers.maven.MavenStreamProvider;
 import io.buildlens.report.ConsoleReporter;
 import io.buildlens.storage.BuildStorage;
@@ -145,8 +148,44 @@ class IngestFlowTest {
         assertEquals(2, build.getTestTotals().getRun());
         assertTrue(build.getDurationMs() > 0);
 
+        // every timed task carries its timing provenance
+        for (io.buildlens.core.model.Task task : build.getTasks()) {
+            assertEquals(io.buildlens.core.model.TaskTimingSource.ARRIVAL_CLOCK,
+                    task.getTimingSource());
+            assertEquals(io.buildlens.core.model.TaskTimingConfidence.HIGH,
+                    task.getTimingConfidence());
+        }
+
         // raw output is retained for persistence
         assertTrue(result.getRawOutput().contains("[INFO] BUILD SUCCESS"));
+    }
+
+    @Test
+    void parallelBuildStampsTasksApproximate() throws Exception {
+        Console console = new Console();
+        MavenStreamProvider provider = new MavenStreamProvider();
+        CaptureContext context = new CaptureContext("mvn -T1C clean package", null, null,
+                System.nanoTime());
+        java.io.InputStream parallel = new java.io.ByteArrayInputStream((
+                "[INFO] Using the MultiThreadedBuilder with 8 threads\n"
+                        + "[INFO] --- clean:3.2.0:clean (default-clean) @ app ---\n"
+                        + "[INFO] Deleting /tmp/app/target\n"
+                        + "[INFO] --- compiler:3.13.0:compile (default-compile) @ app ---\n"
+                        + "[INFO] Compiling 3 source files\n"
+                        + "[INFO] BUILD SUCCESS\n").getBytes(StandardCharsets.UTF_8));
+        BuildResult result = provider.capture(parallel, context, console.stream);
+
+        Build build = result.getBuild();
+        assertEquals(TaskTimingMode.APPROXIMATE_PARALLEL, build.getTaskTimingMode());
+        for (io.buildlens.core.model.Task task : build.getTasks()) {
+            assertEquals(TaskTimingSource.ARRIVAL_CLOCK, task.getTimingSource());
+            assertEquals(TaskTimingConfidence.LOW, task.getTimingConfidence());
+            assertTrue(task.hasApproximateDuration());
+        }
+
+        String summary = new ConsoleReporter().runSummary(build, null, 1);
+        assertTrue(summary.contains("~  approximate: parallel build interleaves module output"),
+                "summary should flag approximate task timings:\n" + summary);
     }
 
     @Test

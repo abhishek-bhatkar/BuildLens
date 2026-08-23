@@ -37,6 +37,14 @@ public class Task {
     @SerializedName("durationMs")
     private Long durationMs;
 
+    /** How the timing numbers were obtained; null when untimed. */
+    @SerializedName("timingSource")
+    private TaskTimingSource timingSource;
+
+    /** Confidence in the timing numbers; LOW means the value is approximate. */
+    @SerializedName("timingConfidence")
+    private TaskTimingConfidence timingConfidence;
+
     @SerializedName("status")
     private String status;
 
@@ -104,6 +112,27 @@ public class Task {
 
     public void setDurationMs(Long durationMs) {
         this.durationMs = durationMs;
+    }
+
+    public TaskTimingSource getTimingSource() {
+        return timingSource;
+    }
+
+    public void setTimingSource(TaskTimingSource timingSource) {
+        this.timingSource = timingSource;
+    }
+
+    public TaskTimingConfidence getTimingConfidence() {
+        return timingConfidence;
+    }
+
+    public void setTimingConfidence(TaskTimingConfidence timingConfidence) {
+        this.timingConfidence = timingConfidence;
+    }
+
+    /** True when a duration exists but should be shown as approximate. */
+    public boolean hasApproximateDuration() {
+        return durationMs != null && timingConfidence == TaskTimingConfidence.LOW;
     }
 
     public String getStatus() {

@@ -5,7 +5,11 @@ import com.google.gson.GsonBuilder;
 import io.buildlens.core.BuildResult;
 import io.buildlens.core.model.Build;
 import io.buildlens.core.model.BuildStatus;
+import io.buildlens.core.model.Category;
+import io.buildlens.core.model.Task;
+import io.buildlens.core.model.TaskTimingConfidence;
 import io.buildlens.core.model.TaskTimingMode;
+import io.buildlens.core.model.TaskTimingSource;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -13,6 +17,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -31,6 +36,14 @@ class BuildStorageTest {
         build.setDurationMs(durationMs);
         build.setStatus(BuildStatus.SUCCESS);
         build.setTaskTimingMode(TaskTimingMode.SEQUENTIAL_ARRIVAL);
+        Task task = new Task(0, "maven-clean-plugin", "3.2.0", "clean",
+                "default-clean", "app", Category.CLEAN);
+        task.setStartMs(0L);
+        task.setEndMs(1200L);
+        task.setDurationMs(1200L);
+        task.setTimingSource(TaskTimingSource.ARRIVAL_CLOCK);
+        task.setTimingConfidence(TaskTimingConfidence.HIGH);
+        build.getTasks().add(task);
         return new BuildResult(build, "raw output line\n");
     }
 
@@ -129,5 +142,28 @@ class BuildStorageTest {
         assertEquals("maven", tree.get("tool").getAsString());
         assertEquals("SUCCESS", tree.get("status").getAsString());
         assertEquals(227_000, tree.get("durationMs").getAsLong());
+
+        com.google.gson.JsonObject task =
+                tree.getAsJsonArray("tasks").get(0).getAsJsonObject();
+        assertEquals("ARRIVAL_CLOCK", task.get("timingSource").getAsString());
+        assertEquals("HIGH", task.get("timingConfidence").getAsString());
+    }
+
+    @Test
+    void timingProvenanceSurvivesRoundTrip() throws Exception {
+        BuildStorage storage = new BuildStorage(tempDir);
+        storage.save(result("2026-08-15T220103", "mvn clean package", 227_000));
+
+        Task loaded = storage.load("2026-08-15T220103").getTasks().get(0);
+        assertEquals(TaskTimingSource.ARRIVAL_CLOCK, loaded.getTimingSource());
+        assertEquals(TaskTimingConfidence.HIGH, loaded.getTimingConfidence());
+        assertFalse(loaded.hasApproximateDuration());
+        // legacy reports written before provenance existed load with nulls
+        java.nio.file.Files.write(tempDir.resolve("builds/legacy.json"),
+                ("{\"schemaVersion\":1,\"buildId\":\"legacy\",\"tasks\":["
+                        + "{\"id\":0,\"durationMs\":500}]}").getBytes("UTF-8"));
+        Task legacy = storage.load("legacy").getTasks().get(0);
+        assertNull(legacy.getTimingSource());
+        assertNull(legacy.getTimingConfidence());
     }
 }

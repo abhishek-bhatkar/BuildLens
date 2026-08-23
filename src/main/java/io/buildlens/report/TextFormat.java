@@ -30,6 +30,11 @@ public final class TextFormat {
         return String.format("%dm %02ds", minutes, seconds);
     }
 
+    /** Null-safe variant: untimed values render as n/a. */
+    public static String duration(Long ms) {
+        return ms == null ? "n/a" : duration(ms.longValue());
+    }
+
     /** Signed duration: +38s, -1.2s; sub-100ms noise renders as 0.0s. */
     public static String signedDuration(long ms) {
         if (Math.abs(ms) < 100) {

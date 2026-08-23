@@ -8,7 +8,9 @@ import io.buildlens.core.model.BuildStatus;
 import io.buildlens.core.model.Environment;
 import io.buildlens.core.model.Module;
 import io.buildlens.core.model.Task;
+import io.buildlens.core.model.TaskTimingConfidence;
 import io.buildlens.core.model.TaskTimingMode;
+import io.buildlens.core.model.TaskTimingSource;
 import io.buildlens.core.model.TestClassResult;
 
 import java.io.BufferedReader;
@@ -144,15 +146,22 @@ public final class MavenStreamProvider implements BuildProvider {
             build.setStatus(BuildStatus.UNKNOWN);
         }
 
-        build.setTaskTimingMode(parsed.getTasks().isEmpty() ? TaskTimingMode.NONE
+        TaskTimingMode timingMode = parsed.getTasks().isEmpty() ? TaskTimingMode.NONE
                 : parsed.isParallel() ? TaskTimingMode.APPROXIMATE_PARALLEL
-                : TaskTimingMode.SEQUENTIAL_ARRIVAL);
+                : TaskTimingMode.SEQUENTIAL_ARRIVAL;
+        build.setTaskTimingMode(timingMode);
 
         build.setFailureReason(parsed.getFailureReason());
         build.setDownloads(parsed.getDownloads());
 
         for (Task task : parsed.getTasks()) {
             task.setStatus(isFailedGoal(parsed, task) ? "FAILURE" : "SUCCESS");
+            if (task.getDurationMs() == null) {
+                task.setTimingConfidence(TaskTimingConfidence.UNAVAILABLE);
+            } else {
+                task.setTimingSource(TaskTimingSource.ARRIVAL_CLOCK);
+                task.setTimingConfidence(timingMode.confidence());
+            }
             build.getTasks().add(task);
         }
 

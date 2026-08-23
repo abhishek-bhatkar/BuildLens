@@ -65,9 +65,10 @@ public final class ConsoleReporter {
             for (Task task : summary.getSlowestTasks()) {
                 sb.append(rank++).append(". ")
                         .append(pad(task.label(), 34))
-                        .append(padLeft(duration(task.getDurationMs()), 9))
+                        .append(padLeft(taskDuration(task), 9))
                         .append('\n');
             }
+            appendProvenanceNote(sb, summary.getSlowestTasks());
             sb.append('\n');
         }
 
@@ -134,11 +135,12 @@ public final class ConsoleReporter {
             for (Task task : summary.getSlowestTasks()) {
                 sb.append(rank++).append(". ")
                         .append(pad(task.label(), 40))
-                        .append(padLeft(duration(task.getDurationMs()), 9))
+                        .append(padLeft(taskDuration(task), 9))
                         .append("   ")
                         .append(task.getCategory() == null ? "" : task.getCategory().displayName())
                         .append('\n');
             }
+            appendProvenanceNote(sb, summary.getSlowestTasks());
             sb.append('\n');
         }
 
@@ -223,6 +225,7 @@ public final class ConsoleReporter {
         }
 
         int shown = 0;
+        boolean approximate = false;
         for (ComparisonResult.TaskDelta delta : result.getTaskRegressions()) {
             if (delta.deltaMs < 500 || shown >= 5) {
                 break;
@@ -230,16 +233,21 @@ public final class ConsoleReporter {
             if (shown == 0) {
                 sb.append(section("Likely regression"));
             }
-            sb.append("  ").append(pad(delta.current.label(), 36))
+            approximate |= deltaHasApproximateTiming(delta);
+            sb.append("  ").append(pad(taskDeltaLabel(delta), 36))
                     .append(padLeft(signedDuration(delta.deltaMs), 9))
                     .append('\n');
             shown++;
         }
         if (shown > 0) {
+            if (approximate) {
+                appendApproximateNote(sb);
+            }
             sb.append('\n');
         }
 
         shown = 0;
+        approximate = false;
         for (ComparisonResult.TaskDelta delta : result.getTaskImprovements()) {
             if (delta.deltaMs > -500 || shown >= 5) {
                 break;
@@ -247,12 +255,16 @@ public final class ConsoleReporter {
             if (shown == 0) {
                 sb.append(section("Improved"));
             }
-            sb.append("  ").append(pad(delta.current.label(), 36))
+            approximate |= deltaHasApproximateTiming(delta);
+            sb.append("  ").append(pad(taskDeltaLabel(delta), 36))
                     .append(padLeft(signedDuration(delta.deltaMs), 9))
                     .append('\n');
             shown++;
         }
         if (shown > 0) {
+            if (approximate) {
+                appendApproximateNote(sb);
+            }
             sb.append('\n');
         }
         return sb.toString();
@@ -320,6 +332,44 @@ public final class ConsoleReporter {
         }
         return build.getTaskTimingMode() == TaskTimingMode.APPROXIMATE_PARALLEL
                 ? " (approximate; parallel build)" : "";
+    }
+
+    /** Duration column with a ~ marker when the value is only approximate. */
+    private static String taskDuration(Task task) {
+        String text = duration(task.getDurationMs());
+        return task.hasApproximateDuration() ? "~" + text : text;
+    }
+
+    static final String APPROXIMATE_NOTE =
+            "~  approximate: parallel build interleaves module output";
+
+    /** Dim footnote under a section whose task durations are approximate. */
+    private static void appendProvenanceNote(StringBuilder sb, List<Task> tasks) {
+        if (anyApproximate(tasks)) {
+            appendApproximateNote(sb);
+        }
+    }
+
+    private static void appendApproximateNote(StringBuilder sb) {
+        sb.append(Ansi.apply(Ansi.Style.DIM, APPROXIMATE_NOTE)).append('\n');
+    }
+
+    private static boolean anyApproximate(List<Task> tasks) {
+        for (Task task : tasks) {
+            if (task.hasApproximateDuration()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean deltaHasApproximateTiming(ComparisonResult.TaskDelta delta) {
+        return (delta.previous != null && delta.previous.hasApproximateDuration())
+                || (delta.current != null && delta.current.hasApproximateDuration());
+    }
+
+    private static String taskDeltaLabel(ComparisonResult.TaskDelta delta) {
+        return (deltaHasApproximateTiming(delta) ? "~" : "") + delta.current.label();
     }
 
     private static String testTotalsLine(Build build) {
