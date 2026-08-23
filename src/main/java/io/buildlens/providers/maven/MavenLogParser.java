@@ -36,8 +36,10 @@ public final class MavenLogParser {
             Pattern.compile("^\\[INFO\\] --- (.+) @ (\\S+) ---$");
     private static final Pattern MODULE_BANNER =
             Pattern.compile("^\\[INFO\\] -+< ([^>]+) >-+$");
+    // Version slot excludes '/', ':' etc. so plugin lines like
+    // "Building jar: /path/to/artifact.jar" are not mistaken for modules.
     private static final Pattern BUILDING =
-            Pattern.compile("^\\[INFO\\] Building (\\S+) (\\S+)(?:\\s+.*)?$");
+            Pattern.compile("^\\[INFO\\] Building (\\S+) ([\\w.\\-]+)(\\s+\\[\\d+/\\d+\\])?$");
     private static final Pattern FROM =
             Pattern.compile("^\\[INFO\\]\\s+from (\\S+)$");
     private static final Pattern REACTOR_ORDER_HEADER =
@@ -78,6 +80,7 @@ public final class MavenLogParser {
 
     private boolean inReactorOrder;
     private boolean inReactorSummary;
+    private String currentModule;
 
     /**
      * Feeds one output line with its arrival time, in nanoseconds relative to
@@ -105,12 +108,11 @@ public final class MavenLogParser {
                 result.module(row.group(1));
                 return;
             }
-            if (line.trim().equals("[INFO]") || line.trim().isEmpty()) {
-                inReactorOrder = false;
-                // fall through to normal handling of this (blank) line
-            } else {
-                return;
+            if (isBlankInfoLine(line)) {
+                return; // blank separators inside the section are skipped
             }
+            inReactorOrder = false;
+            // fall through to normal handling
         }
 
         if (inReactorSummary) {
@@ -121,12 +123,11 @@ public final class MavenLogParser {
                 facts.status = row.group(2);
                 return;
             }
-            if (line.startsWith("[INFO] ---") || line.trim().equals("[INFO]")) {
-                inReactorSummary = false;
-                // fall through
-            } else {
-                return;
+            if (isBlankInfoLine(line)) {
+                return; // blank separators inside the section are skipped
             }
+            inReactorSummary = false;
+            // fall through to normal handling
         }
 
         Matcher marker = PLUGIN_MARKER.matcher(line);
@@ -141,6 +142,7 @@ public final class MavenLogParser {
             closeOpenTask(arrivalNanos);
             String ga = moduleBanner.group(1);
             String name = ga.contains(":") ? ga.substring(ga.lastIndexOf(':') + 1) : ga;
+            currentModule = name;
             result.module(name).ga = ga;
             return;
         }
@@ -154,21 +156,21 @@ public final class MavenLogParser {
 
         Matcher building = BUILDING.matcher(line);
         if (building.matches()) {
-            result.module(building.group(1));
+            // The module banner (with the artifactId) precedes this line;
+            // "Building <name>" carries the display name, which can differ
+            // (e.g. "BuildLens" vs "buildlens"), so only use it as a fallback.
+            if (currentModule == null) {
+                currentModule = building.group(1);
+                result.module(currentModule);
+            }
             return;
         }
 
         Matcher from = FROM.matcher(line);
         if (from.matches()) {
-            // Path of the most recently seen module; Maven prints this
-            // directly after the "Building <name>" line.
-            String path = from.group(1);
-            String lastName = null;
-            for (String name : result.getModules().keySet()) {
-                lastName = name;
-            }
-            if (lastName != null) {
-                result.module(lastName).path = path;
+            // Maven prints "from <path>" right after the module header block.
+            if (currentModule != null) {
+                result.module(currentModule).path = from.group(1);
             }
             return;
         }
@@ -223,6 +225,11 @@ public final class MavenLogParser {
             result.setParallel(true);
             return;
         }
+    }
+
+    private static boolean isBlankInfoLine(String line) {
+        String trimmed = line.trim();
+        return trimmed.isEmpty() || trimmed.equals("[INFO]");
     }
 
     private void consumeBanner(String line) {

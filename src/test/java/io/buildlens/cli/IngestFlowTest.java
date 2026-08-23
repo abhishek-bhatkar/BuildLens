@@ -53,6 +53,78 @@ class IngestFlowTest {
         return provider.capture(GoldenLogs.stream(goldenLog), context, console.stream);
     }
 
+    /**
+     * Streams bytes with a pause after each newline so arrival-time-based task
+     * durations become meaningful (the surefire block has the most lines and
+     * therefore dominates, as in real builds).
+     */
+    private BuildResult capturePaced(String goldenLog, Console console) throws Exception {
+        MavenStreamProvider provider = new MavenStreamProvider();
+        CaptureContext context = new CaptureContext("mvn clean package", null, null,
+                System.nanoTime());
+        java.io.InputStream paced = new PacedStream(GoldenLogs.bytes(goldenLog), 15);
+        return provider.capture(paced, context, console.stream);
+    }
+
+    private static final class PacedStream extends java.io.InputStream {
+        private final byte[] data;
+        private int position;
+        private final long delayMs;
+
+        PacedStream(byte[] data, long delayMs) {
+            this.data = data;
+            this.delayMs = delayMs;
+        }
+
+        @Override
+        public int read() {
+            if (position >= data.length) {
+                return -1;
+            }
+            int b = data[position++];
+            if (b == '\n') {
+                pause();
+            }
+            return b;
+        }
+
+        /**
+         * Delivers at most one line per call. Without this, the default
+         * bulk read loops until the buffer is full and would collapse the
+         * pacing (real pipes return short reads, which is what production
+         * relies on).
+         */
+        @Override
+        public int read(byte[] buffer, int offset, int length) {
+            if (position >= data.length) {
+                return -1;
+            }
+            if (length <= 0) {
+                return 0;
+            }
+            int end = position;
+            while (end < data.length && data[end] != '\n') {
+                end++;
+            }
+            int lineEnd = Math.min(data.length, end + 1); // include the newline
+            int count = Math.min(length, lineEnd - position);
+            System.arraycopy(data, position, buffer, offset, count);
+            position += count;
+            if (position > 0 && data[position - 1] == '\n') {
+                pause();
+            }
+            return count;
+        }
+
+        private void pause() {
+            try {
+                Thread.sleep(delayMs);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+
     @Test
     void captureEchoesOriginalOutputAndProducesAModel() throws Exception {
         Console console = new Console();
@@ -80,7 +152,7 @@ class IngestFlowTest {
     @Test
     void persistenceRoundTripThenSummaryAndReport() throws Exception {
         Console console = new Console();
-        BuildResult result = capture("golden-simple-project.log", console);
+        BuildResult result = capturePaced("golden-simple-project.log", console);
         BuildStorage storage = new BuildStorage(tempDir);
         Path saved = storage.save(result);
 

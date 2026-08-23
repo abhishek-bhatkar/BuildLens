@@ -32,7 +32,7 @@ class TextFormatTest {
         assertEquals("47.2%", TextFormat.percentOf(4720, 10000));
         assertEquals("0%", TextFormat.percentOf(10, 0));
 
-        assertEquals("████████", TextFormat.bar(800, 1000, 8));
+        assertEquals("██████", TextFormat.bar(800, 1000, 8));
         assertEquals("█", TextFormat.bar(1, 1000, 8));
         assertEquals("", TextFormat.bar(0, 1000, 8));
         assertEquals(22, TextFormat.bar(500, 500, 22).length());

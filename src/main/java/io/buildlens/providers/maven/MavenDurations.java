@@ -25,42 +25,36 @@ public final class MavenDurations {
             return null;
         }
 
-        // 01:02:03 h / 01:02:03
-        String h = stripUnit(t, "h");
-        if (h != null && h.contains(":")) {
-            String[] parts = h.split(":");
-            if (parts.length == 3) {
-                Long ms = hms(parts[0], parts[1], parts[2]);
-                if (ms != null) {
-                    return ms;
-                }
-            }
-            return null;
+        boolean hoursUnit = t.endsWith("h");
+        boolean minutesUnit = t.endsWith("min");
+        boolean secondsUnit = t.endsWith("s") && !minutesUnit;
+        String body = stripSuffix(t);
+
+        if (hoursUnit) {
+            // 01:02:03 h
+            Long ms = hms(body);
+            return ms;
+        }
+        if (minutesUnit) {
+            // 03:47 min
+            return hms("0:" + body);
+        }
+        if (secondsUnit) {
+            // 1.272 s
+            return seconds(body);
         }
 
-        // 03:47 min / 03:47
-        String min = stripUnit(t, "min");
-        if (min != null && min.contains(":")) {
-            String[] parts = min.split(":");
-            if (parts.length == 2) {
-                Long ms = hms("0", parts[0], parts[1]);
-                if (ms != null) {
-                    return ms;
-                }
-            }
-            return null;
+        // Unit-less forms: 01:02:03 means hours, 03:47 means minutes,
+        // 1.272 means seconds (the reactor summary's bracketed form lands here).
+        if (body.matches("\\d{1,2}:\\d{2}:\\d{2}(\\.\\d+)?")) {
+            return hms(body);
         }
-
-        // 1.272 s / 1.272
-        String s = stripUnit(t, "s");
-        if (s != null && !s.contains(":")) {
-            try {
-                return (long) Math.round(Double.parseDouble(s) * 1000.0);
-            } catch (NumberFormatException e) {
-                return null;
-            }
+        if (body.matches("\\d{1,2}:\\d{2}(\\.\\d+)?")) {
+            return hms("0:" + body);
         }
-
+        if (body.matches("[\\d.]+")) {
+            return seconds(body);
+        }
         return null;
     }
 
@@ -76,13 +70,37 @@ public final class MavenDurations {
         return parseMs(t);
     }
 
-    private static String stripUnit(String t, String unit) {
-        if (t.endsWith(unit)) {
-            String stripped = t.substring(0, t.length() - unit.length()).trim();
-            return stripped.isEmpty() ? null : stripped;
+    private static String stripSuffix(String t) {
+        if (t.endsWith("min")) {
+            return t.substring(0, t.length() - 3).trim();
         }
-        // Unit-less variant is still accepted for the h/m/s shapes.
-        return t.matches("[\\d:.]+") ? t : null;
+        if (t.endsWith("h") || t.endsWith("s")) {
+            return t.substring(0, t.length() - 1).trim();
+        }
+        return t;
+    }
+
+    private static Long seconds(String body) {
+        try {
+            return (long) Math.round(Double.parseDouble(body) * 1000.0);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static Long hms(String body) {
+        String[] parts = body.split(":");
+        if (parts.length != 3) {
+            return null;
+        }
+        try {
+            long hours = Long.parseLong(parts[0].trim());
+            long minutes = Long.parseLong(parts[1].trim());
+            double seconds = Double.parseDouble(parts[2].trim());
+            return hours * 3600000L + minutes * 60000L + (long) Math.round(seconds * 1000.0);
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     private static Long hms(String h, String m, String s) {

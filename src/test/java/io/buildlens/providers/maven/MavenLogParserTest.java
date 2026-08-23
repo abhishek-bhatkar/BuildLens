@@ -174,6 +174,28 @@ class MavenLogParserTest {
         assertEquals(2000L, tasks.get(1).getDurationMs().longValue());
     }
 
+    @Test
+    void buildingLineWithDisplayNameDoesNotCreatePhantomModule() throws IOException {
+        MavenLogParser parser = new MavenLogParser();
+        BufferedReader reader = new BufferedReader(new StringReader(
+                "[INFO] -----------------------< io.buildlens:buildlens >-----------------------\n"
+                        + "[INFO] Building BuildLens 0.1.0\n"
+                        + "[INFO]   from pom.xml\n"
+                        + "[INFO] --- clean:3.2.0:clean (default-clean) @ buildlens ---\n"
+                        + "[INFO] --- compiler:3.13.0:compile (default-compile) @ buildlens ---\n"
+                        + "[INFO] BUILD SUCCESS\n"));
+        long clock = 0;
+        String line;
+        while ((line = reader.readLine()) != null) {
+            clock += 1_000_000L;
+            parser.consume(line, clock);
+        }
+        ParsedLog parsed = parser.finish(clock);
+        assertEquals(1, parsed.getModules().size());
+        assertEquals("buildlens", parsed.getModules().keySet().iterator().next());
+        assertEquals(2, parsed.getModules().get("buildlens").taskCount);
+    }
+
     /** Small indirection so the helper stays out of the production packages. */
     private static final class GoldenLogsHelper {
         static java.io.InputStreamReader reader(String name) throws IOException {

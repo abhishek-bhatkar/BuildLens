@@ -19,6 +19,7 @@ class MavenDurationsTest {
     void parsesMinutes() {
         assertEquals(Long.valueOf(227000L), MavenDurations.parseMs("03:47 min"));
         assertEquals(Long.valueOf(60000L), MavenDurations.parseMs("01:00 min"));
+        // unit-less mm:ss is treated as minutes
         assertEquals(Long.valueOf(227000L), MavenDurations.parseMs("03:47"));
     }
 
@@ -40,7 +41,7 @@ class MavenDurationsTest {
         assertNull(MavenDurations.parseMs(null));
         assertNull(MavenDurations.parseMs(""));
         assertNull(MavenDurations.parseMs("soon"));
-        assertNull(MavenDurations.parseMs("03:47"));
+        assertNull(MavenDurations.parseMs("12:34:56:78"));
         assertNull(MavenDurations.parseBracketedMs(""));
     }
 }
