@@ -67,6 +67,7 @@ case "$subcommand" in
 
     # Probe tool metadata concurrently with the build (zero wall-clock cost).
     VERSION_FILE="$(mktemp "${TMPDIR:-/tmp}/buildlens-version.XXXXXX")"
+    EXIT_FILE="$(mktemp "${TMPDIR:-/tmp}/buildlens-exit.XXXXXX")"
     ( "$MVN_BIN" -version >"$VERSION_FILE" 2>&1 ) &
     probe_pid=$!
 
@@ -74,8 +75,14 @@ case "$subcommand" in
     # stages start together; BuildLens echoes every line as it arrives.
     # --project-dir records which project the build belongs to so history
     # comparison never mixes different projects into one delta.
-    "$MVN_BIN" "${mvn_args[@]}" 2>&1 | "$JAVA_BIN" -Dfile.encoding=UTF-8 -jar "$JAR" ingest \
+    (
+      "$MVN_BIN" "${mvn_args[@]}" 2>&1
+      build_status=$?
+      printf '%s\n' "$build_status" >"$EXIT_FILE"
+      exit "$build_status"
+    ) | "$JAVA_BIN" -Dfile.encoding=UTF-8 -jar "$JAR" ingest \
         --command "mvn ${mvn_args[*]}" \
+        --exit-code-file "$EXIT_FILE" \
         --version-file "$VERSION_FILE" \
         --project-dir "$PWD" \
         --home "$BUILDS_HOME"
@@ -85,6 +92,7 @@ case "$subcommand" in
     kill "$probe_pid" >/dev/null 2>&1
     wait "$probe_pid" >/dev/null 2>&1
     rm -f "$VERSION_FILE"
+    rm -f "$EXIT_FILE"
 
     exit "$build_status"
     ;;

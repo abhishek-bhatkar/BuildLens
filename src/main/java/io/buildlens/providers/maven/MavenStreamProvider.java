@@ -88,31 +88,34 @@ public final class MavenStreamProvider implements BuildProvider {
         if (versionFile == null) {
             return null;
         }
-        IOException failure = null;
+        ParsedLog lastParsed = null;
         for (int attempt = 0; attempt < 3; attempt++) {
             try {
                 if (!Files.exists(versionFile)) {
-                    continue;
+                    // The launcher may not have created the probe file yet.
+                } else {
+                    MavenLogParser bannerParser = new MavenLogParser();
+                    for (String line : Files.readAllLines(versionFile, StandardCharsets.UTF_8)) {
+                        bannerParser.consume(line, -1L);
+                    }
+                    lastParsed = bannerParser.finish(-1L);
+                    if (lastParsed.getToolVersion() != null) {
+                        return lastParsed;
+                    }
                 }
-                MavenLogParser bannerParser = new MavenLogParser();
-                for (String line : Files.readAllLines(versionFile, StandardCharsets.UTF_8)) {
-                    bannerParser.consume(line, -1L);
-                }
-                return bannerParser.finish(-1L);
             } catch (IOException e) {
-                failure = e;
+                // The probe can still be replacing or writing the file.
             }
-            try {
-                Thread.sleep(200);
-            } catch (InterruptedException ie) {
-                Thread.currentThread().interrupt();
-                return null;
+            if (attempt < 2) {
+                try {
+                    Thread.sleep(200);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    return lastParsed;
+                }
             }
         }
-        if (failure != null) {
-            return null;
-        }
-        return null;
+        return lastParsed;
     }
 
     private Build assemble(CaptureContext context, ParsedLog parsed, ParsedLog versionInfo,

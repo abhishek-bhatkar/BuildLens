@@ -4,6 +4,7 @@ import io.buildlens.core.BuildProvider;
 import io.buildlens.core.BuildResult;
 import io.buildlens.core.CaptureContext;
 import io.buildlens.core.model.Build;
+import io.buildlens.core.model.BuildStatus;
 import io.buildlens.providers.maven.MavenStreamProvider;
 import io.buildlens.report.ConsoleReporter;
 import io.buildlens.storage.BuildStorage;
@@ -14,6 +15,8 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -105,6 +108,7 @@ public final class Main {
         String command = null;
         String tool = "mvn";
         Integer exitCode = null;
+        Path exitCodeFile = null;
         Path versionFile = null;
         Path home = StorageLocations.defaultRoot();
         String projectDir = null;
@@ -121,6 +125,8 @@ public final class Main {
                 } catch (NumberFormatException e) {
                     exitCode = null;
                 }
+            } else if ("--exit-code-file".equals(arg) && i + 1 < args.length) {
+                exitCodeFile = Paths.get(args[++i]);
             } else if ("--version-file".equals(arg) && i + 1 < args.length) {
                 versionFile = Paths.get(args[++i]);
             } else if ("--home".equals(arg) && i + 1 < args.length) {
@@ -154,13 +160,36 @@ public final class Main {
             return EXIT_BUILDLENS_ERROR;
         }
 
-        BuildStorage storage = new BuildStorage(home);
-        Path saved = storage.save(result);
+        if (exitCode == null && exitCodeFile != null) {
+            exitCode = readExitCode(exitCodeFile);
+        }
+        if (exitCode != null) {
+            result.getBuild().setExitCode(exitCode);
+            if (result.getBuild().getStatus() == BuildStatus.UNKNOWN) {
+                result.getBuild().setStatus(exitCode == 0
+                        ? BuildStatus.SUCCESS
+                        : BuildStatus.FAILURE);
+            }
+        }
+
         long totalMs = Math.round((System.nanoTime() - captureStart) / 1_000_000.0);
         long analysisMs = Math.max(0L, totalMs - result.getBuild().getDurationMs());
+        result.getBuild().setAnalysisMs(analysisMs);
+
+        BuildStorage storage = new BuildStorage(home);
+        Path saved = storage.save(result);
         out.print(reporter.runSummary(result.getBuild(), saved, analysisMs));
         // The wrapped build's exit status is owned by the launcher, not by us.
         return 0;
+    }
+
+    private static Integer readExitCode(Path exitCodeFile) {
+        try {
+            List<String> lines = Files.readAllLines(exitCodeFile, StandardCharsets.UTF_8);
+            return lines.isEmpty() ? null : Integer.valueOf(lines.get(0).trim());
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     // ------------------------------------------------------------------ report

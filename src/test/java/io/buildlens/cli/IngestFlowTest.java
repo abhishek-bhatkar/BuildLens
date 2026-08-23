@@ -17,6 +17,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -301,5 +302,70 @@ class IngestFlowTest {
         assertEquals(BuildStatus.UNKNOWN, result.getBuild().getStatus());
         assertTrue(result.getBuild().getTasks().isEmpty());
         assertTrue(result.getBuild().getWarnings().size() >= 2);
+    }
+
+    @Test
+    void delayedVersionProbeIsRetriedUntilAvailable() throws Exception {
+        Path versionFile = tempDir.resolve("maven-version.txt");
+        Files.createFile(versionFile);
+        Thread writer = new Thread(() -> {
+            try {
+                Thread.sleep(100);
+                Files.write(versionFile, "Apache Maven 3.9.0 (test)\n".getBytes(StandardCharsets.UTF_8));
+            } catch (Exception e) {
+                throw new AssertionError(e);
+            }
+        });
+        writer.start();
+
+        MavenStreamProvider provider = new MavenStreamProvider();
+        CaptureContext context = new CaptureContext("mvn clean package", null, versionFile,
+                System.nanoTime());
+        BuildResult result = provider.capture(new java.io.ByteArrayInputStream(new byte[0]),
+                context, new Console().stream);
+        writer.join();
+
+        assertEquals("3.9.0", result.getBuild().getToolVersion());
+    }
+
+    @Test
+    void analysisDurationIsPersistedWithIngestedBuild() throws Exception {
+        Path versionFile = tempDir.resolve("maven-version.txt");
+        Files.createFile(versionFile);
+        String[] args = {"ingest", "--command", "mvn clean package", "--version-file",
+                versionFile.toString(), "--home", tempDir.toString()};
+        Main cli = new Main();
+        Console output = new Console();
+
+        assertEquals(0, cli.execute(args,
+                new java.io.ByteArrayInputStream("[INFO] BUILD SUCCESS\n"
+                        .getBytes(StandardCharsets.UTF_8)), output.stream, output.stream));
+
+        BuildStorage storage = new BuildStorage(tempDir);
+        Build loaded = storage.load(storage.latestId());
+        assertTrue(loaded.getAnalysisMs() > 0,
+                "ingest should persist the measured analysis duration");
+        assertTrue(new String(Files.readAllBytes(
+                tempDir.resolve("builds").resolve(loaded.getBuildId() + ".json")),
+                StandardCharsets.UTF_8).contains("\"analysisMs\""));
+    }
+
+    @Test
+    void exitCodeFileSetsStatusWhenOutputHasNoBuildMarker() throws Exception {
+        Path exitFile = tempDir.resolve("exit-code.txt");
+        Files.write(exitFile, "7\n".getBytes(StandardCharsets.UTF_8));
+        String[] args = {"ingest", "--command", "mvn clean package", "--exit-code-file",
+                exitFile.toString(), "--home", tempDir.toString()};
+        Main cli = new Main();
+        Console output = new Console();
+
+        assertEquals(0, cli.execute(args,
+                new java.io.ByteArrayInputStream("quiet output\n"
+                        .getBytes(StandardCharsets.UTF_8)), output.stream, output.stream));
+
+        BuildStorage storage = new BuildStorage(tempDir);
+        Build loaded = storage.load(storage.latestId());
+        assertEquals(7, loaded.getExitCode());
+        assertEquals(BuildStatus.FAILURE, loaded.getStatus());
     }
 }
