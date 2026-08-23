@@ -43,6 +43,23 @@ case "$subcommand" in
   mvn|maven)
     shift
 
+    # Consume BuildLens-only options before forwarding the remaining arguments
+    # to Maven.
+    mvn_args=()
+    while [ "$#" -gt 0 ]; do
+      if [ "$1" = "--home" ]; then
+        if [ "$#" -lt 2 ]; then
+          echo "BuildLens: --home requires a directory" >&2
+          exit 2
+        fi
+        BUILDS_HOME="$2"
+        shift 2
+      else
+        mvn_args+=("$1")
+        shift
+      fi
+    done
+
     if ! command -v "$MVN_BIN" >/dev/null 2>&1; then
       echo "BuildLens: '$MVN_BIN' not found on PATH" >&2
       exit 2
@@ -57,8 +74,8 @@ case "$subcommand" in
     # stages start together; BuildLens echoes every line as it arrives.
     # --project-dir records which project the build belongs to so history
     # comparison never mixes different projects into one delta.
-    "$MVN_BIN" "$@" 2>&1 | "$JAVA_BIN" -Dfile.encoding=UTF-8 -jar "$JAR" ingest \
-        --command "mvn $*" \
+    "$MVN_BIN" "${mvn_args[@]}" 2>&1 | "$JAVA_BIN" -Dfile.encoding=UTF-8 -jar "$JAR" ingest \
+        --command "mvn ${mvn_args[*]}" \
         --version-file "$VERSION_FILE" \
         --project-dir "$PWD" \
         --home "$BUILDS_HOME"
